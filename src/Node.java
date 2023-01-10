@@ -4,30 +4,72 @@ import java.util.*;
 import java.util.Comparator;
 import java.util.Scanner;
 
+/**
+ * Класс узел, обертка над File.
+ */
 public class Node {
+    /**
+     * Содержит все объекты File не директории.
+     */
     private static ArrayList<Node> nodeList = new ArrayList<>();
+    /**
+     * Содержит ссылку на корневую папку.
+     */
     private static String root;
+    /**
+     * Имя узла.
+     */
     private String name;
+    /**
+     * Ссылка на лист строк текста файла узла.
+     */
     private ArrayList<String> text = new ArrayList<>();
+    /**
+     * Ссылка на лист зависимых узлов.
+     */
     private ArrayList<String> require = new ArrayList<>();
 
+    /**
+     * Кастомный компаратор для сравнения двух узлов.
+     */
     private static class CustomComparator implements Comparator<Node> {
+        /**
+         * Непосрдественно для метод сравнения.
+         * @param o1 the first object to be compared.
+         * @param o2 the second object to be compared.
+         * @return
+         */
         @Override
         public int compare(Node o1, Node o2) {
-            if (o1.require.contains(o2.name)) {
-                return 1;
+            // Проверяем на наличие узла в списке связанных узлов.
+            for (String s : o1.require) {
+                String s1 = root + s + ".txt";
+                if (o2.name.equals(s1)) {
+                    return 1;
+                } else {
+                }
             }
-            if (o2.require.contains(o1.name)) {
-                return -1;
+            for (String s : o2.require) {
+                String s1 = root + s + ".txt";
+                if (o1.name.equals(s1)) {
+                    return -1;
+                } else {
+                }
             }
             return 0;
         }
     }
 
+    /**
+     * Метод, выполняющий работу программы.
+     */
     public static void doWork() {
         root = "root\\";
+        // Создаем узел по корневой папке.
+        // В результате рекурсивно создаются все узлы из коренового каталога.
         Node node = new Node(root);
         try {
+            // Проверяем на циклическую зависимость.
             Node.checkNodeList();
         }
         catch (IllegalArgumentException ex) {
@@ -38,7 +80,9 @@ public class Node {
             }
             return;
         }
+        // Сортируем узлы.
         node.Sort();
+        // Записываем итоговый текст в файл.
         try(FileWriter writer = new FileWriter("out.txt", false))
         {
             for (Node node1 : Node.nodeList) {
@@ -51,18 +95,29 @@ public class Node {
         catch(IOException ex){
             System.out.println(ex.getMessage());
         }
+        // Выводим отсортированный список узлов.
+        for (Node node1 : nodeList) {
+            System.out.println(node1.name);
+        }
     }
 
     private Node() {}
+
+    /**
+     * Констуктор узла.
+     * @param path принимает на вход путь до файла в проводнике.
+     */
     private Node(String path) {
         name = path;
         File file = new File(path);
+        // Если директория создает новые узлы.
         if (file.isDirectory()) {
             for (File item : file.listFiles()) {
                 Node node = new Node(item.getPath());
             }
         }
         if(file.exists() && !file.isDirectory()) {
+            // Проверям на .txt
             int dotIndex = path.lastIndexOf('.');
             String postFix = (dotIndex == -1) ? "" : path.substring(dotIndex + 1);
             if ("txt".equals(postFix)) {
@@ -71,9 +126,8 @@ public class Node {
                         String line = s.next();
                         if (line.contains("require ‘") && line.indexOf('’') > 8 && line.indexOf('’') != -1) {
                             require.add(line.substring(line.indexOf('‘') + 1, line.indexOf('’')));
-                        } else {
-                            text.add(line);
                         }
+                        text.add(line);
                     }
                     nodeList.add(this);
                 } catch (FileNotFoundException e) {
@@ -81,15 +135,25 @@ public class Node {
             }
         }
     }
+
+    /**
+     * Проверяет список узлов на цикличность.
+     */
     private static void checkNodeList() {
         for (Node node : nodeList) {
             for (int i = 0; i < node.require.size(); i++) {
-                checkNodeRequire(node.require.get(i), node.require);
+                checkNodeRequire(node.require.get(i), node.require.get(i), node.require);
             }
         }
     }
 
-    private static void checkNodeRequire(String path, ArrayList<String> nodeRequire) {
+    /**
+     * Проверяет узел на цикличность.
+     * @param path путь до текущего узла.
+     * @param start начальный узел, который проверяем.
+     * @param nodeRequire список зависимых начального узла.
+     */
+    private static void checkNodeRequire(String path, String start, ArrayList<String> nodeRequire) {
         boolean flag = false;
         Node current = new Node();
         for (Node node : nodeList) {
@@ -99,12 +163,13 @@ public class Node {
             }
         }
         if (flag) {
-            for (String pathRequire : current.require) {
-                if (nodeRequire.contains(pathRequire)) {
+            for (int i = 0; i < current.require.size(); i++) {
+                String pathRequire = current.require.get(i);
+                if (pathRequire.equals(start)) {
                     throw new IllegalArgumentException(pathRequire);
                 } else {
                     nodeRequire.add(pathRequire);
-                    checkNodeRequire(pathRequire, nodeRequire);
+                    checkNodeRequire(pathRequire, start, nodeRequire);
                 }
             }
         } else {
@@ -113,6 +178,9 @@ public class Node {
         }
     }
 
+    /**
+     * Сортировка списка узлов.
+     */
     private static void Sort() {
         Collections.sort(nodeList, new CustomComparator());
     }
